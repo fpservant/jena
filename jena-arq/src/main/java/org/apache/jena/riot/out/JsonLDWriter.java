@@ -100,6 +100,10 @@ public class JsonLDWriter extends WriterDatasetRIOTBase
 		public static final Symbol JSONLD_FRAME = Symbol.create("JSONLD_FRAME");
 		/** value: the option object expected by JsonLdProcessor (instance of JsonLdOptions) */
 		public static final Symbol JSONLD_OPTIONS = Symbol.create("JSONLD_OPTIONS");
+		/** value: Boolean.TRUE to prefer using "ex:p" over "p" alone for properties. Default is FALSE 
+		 * (This is useful when using a vocabulary that also declares resources that are used as values of properties) */
+		public static final Symbol JSONLD_PREFER_PREFIXED_PROPS = Symbol.create("JSONLD_PREFER_PREFIXED_PROPS");
+
 		private static enum JSONLD_FORMAT {
 			COMPACT,
 			FLATTEN,
@@ -252,7 +256,8 @@ public class JsonLDWriter extends WriterDatasetRIOTBase
 
   		if (!isCtxDefined) {
   			// if no ctx passed via jenaContext, create one in order to have localnames as keys for properties
-  			ctx = createJsonldContext(dataset.getDefaultGraph(), prefixMap) ;
+  			boolean preferPrefixedProps = preferPrefixedProps(jenaContext);
+  			ctx = createJsonldContext(dataset.getDefaultGraph(), prefixMap, preferPrefixedProps) ;
   			
         // I don't think this should be done: the JsonLdProcessor begins
         // by looking whether the argument passed is a map with key "@context" and takes corresponding value
@@ -269,13 +274,13 @@ public class JsonLDWriter extends WriterDatasetRIOTBase
   	// useful to help people wanting to create their own context?
     // It is used in TestJsonLDWriter (marginally) (TestJsonLDWriter which happens to be in another package,
     // so either I remove the test, or this has to be public)
-  	public static Object createJsonldContext(Graph g) {
-  		return createJsonldContext(g, PrefixMapFactory.create(g.getPrefixMapping()));
+  	public static Object createJsonldContext(Graph g, boolean preferPrefixedProps) {
+  		return createJsonldContext(g, PrefixMapFactory.create(g.getPrefixMapping()), preferPrefixedProps);
   	}
 
-  	private static Object createJsonldContext(Graph g, PrefixMap prefixMap) {
+  	private static Object createJsonldContext(Graph g, PrefixMap prefixMap, boolean preferPrefixedProps) {
   		final Map<String, Object> ctx = new LinkedHashMap<>() ;
-  		addProperties(ctx, g) ;
+  		addProperties(ctx, g, prefixMap, preferPrefixedProps) ;
   		addPrefixes(ctx, prefixMap) ;	
   		return ctx ;
   	}
@@ -294,7 +299,17 @@ public class JsonLDWriter extends WriterDatasetRIOTBase
         }
     }
 
-    private static void addProperties(final Map<String, Object> ctx, Graph graph) {
+    private static boolean preferPrefixedProps(Context jenaContext) {
+    	if (jenaContext != null) {
+    		Boolean b = (Boolean) jenaContext.get(JSONLD_PREFER_PREFIXED_PROPS);
+    		if (b != null) {
+    			return b.booleanValue();
+    		}
+    	}
+  		return false;
+    }
+
+    private static void addProperties(final Map<String, Object> ctx, final Graph graph, final PrefixMap prefixMap, final boolean preferPrefixedProps) {
         // Add some properties directly so it becomes "localname": ....
         Consumer<Triple> x = new Consumer<Triple>() {
             @Override
@@ -303,7 +318,12 @@ public class JsonLDWriter extends WriterDatasetRIOTBase
                 Node o = item.getObject() ;
                 if ( p.equals(RDF.type.asNode()) )
                     return ;
-                String x = p.getLocalName() ;
+                
+                String x = null;
+                if (preferPrefixedProps) { // prefer using "ex:p" over "p" alone
+                	x = prefixMap.abbreviate(p.getURI());
+                }
+                if (x == null) x = p.getLocalName() ;
 
                 if ( ctx.containsKey(x) ) {
                 } else if ( o.isBlank() || o.isURI() ) {

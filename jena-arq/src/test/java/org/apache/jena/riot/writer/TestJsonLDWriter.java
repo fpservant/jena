@@ -307,7 +307,7 @@ java.lang.NoSuchMethodError: org.apache.http.impl.client.cache.CacheConfig.custo
 	
 	// the context used in this case, created automatically by jena as none is set
 	// it includes one prefix
-	Object ctx = JsonLDWriter.createJsonldContext(m.getGraph());
+	Object ctx = JsonLDWriter.createJsonldContext(m.getGraph(), false);
 	
 	// remove the prefix from m
 	m.removeNsPrefix("ex");	// RDFDataMgr.write(System.out, m, RDFFormat.JSONLD) ;
@@ -348,7 +348,6 @@ java.lang.NoSuchMethodError: org.apache.http.impl.client.cache.CacheConfig.custo
 	String c = "\"@context\":\"http://schema.org/\"";
 	assertTrue(jsonld.indexOf(c) > -1);
 }
-
 
 /**
  * Checking frames
@@ -400,6 +399,66 @@ java.lang.NoSuchMethodError: org.apache.http.impl.client.cache.CacheConfig.custo
 	// something we hadn't tested in prettyIsNotFlat
 	assertTrue(jsonld.trim().indexOf("\n") < 0);
 }
+
+/**
+ * 
+ */
+@Test public final void testPreferPrefixedProps() {
+	Model m = ModelFactory.createDefaultModel();
+	String ns = "http://schema.org/";
+	Resource person = m.createResource(ns + "Person");
+	Resource s = m.createResource();
+	m.add(s, m.createProperty(ns + "name"), "Jane Doe");
+	m.add(s, m.createProperty(ns + "url"), "http://www.janedoe.com");
+	m.add(s, RDF.type, person);
+	
+	m.setNsPrefix("sh", ns);
+
+	String jsonld1 = toString(m, RDFFormat.JSONLD_COMPACT_PRETTY, null);
+	// This gives the following. Note the "@type" : "sh:Person",
+	// while we have "name", etc. for props. Person and name are however in the same vocab
+	/*
+{
+  "@id" : "_:b0",
+  "@type" : "sh:Person",
+  "name" : "Jane Doe",
+  "url" : "http://www.janedoe.com",
+  "@context" : {
+    "url" : {
+      "@id" : "http://schema.org/url"
+    },
+    "name" : {
+      "@id" : "http://schema.org/name"
+    },
+    "sh" : "http://schema.org/"
+  }
+}
+	 */
+	
+	Context jenaCtx = new Context();
+	jenaCtx.set(JsonLDWriter.JSONLD_PREFER_PREFIXED_PROPS, true);
+	String jsonld2 = toString(m, RDFFormat.JSONLD_COMPACT_PRETTY, jenaCtx);
+	System.out.println(jsonld2);
+	// This gives the following. Now we have "sh:name", etc, in line with the "sh:Person"
+	/*
+{
+  "@id" : "_:b0",
+  "@type" : "sh:Person",
+  "sh:name" : "Jane Doe",
+  "sh:url" : "http://www.janedoe.com",
+  "@context" : {
+    "sh:url" : {
+      "@id" : "http://schema.org/url"
+    },
+    "sh:name" : {
+      "@id" : "http://schema.org/name"
+    },
+    "sh" : "http://schema.org/"
+  }
+}
+	 */
+}
+
 
 /**
  * There was a problem with props taking a string as value.
