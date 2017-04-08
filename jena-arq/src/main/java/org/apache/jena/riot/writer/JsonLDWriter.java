@@ -399,9 +399,11 @@ public class JsonLDWriter extends WriterDatasetRIOTBase
 
     /** Add one prefix to jsonld context */
     static void addOnePrefix(Map<String, Object> ctx, String prefix, String value) {
-        if (!prefix.isEmpty()) { // Prefix "" is not allowed in JSON-LD -- could probably be replaced by "@vocab"
+        if (!prefix.isEmpty()) { // Prefix "" is not allowed in JSON-LD
             ctx.put(prefix, value);
-        }        
+        } else {
+            ctx.put("@vocab", value);
+        }
     }
 
     private static boolean addAllPrefixesToContextFlag(Context jenaContext) {
