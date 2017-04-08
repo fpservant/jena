@@ -32,8 +32,6 @@ import org.apache.jena.riot.system.SyntaxLabels ;
 
 public class NodeToLabel extends MapWithScope<Node, String, Node>
 {
-    public static final String ALLOCATOR_INC_LABEL_PREFIX = "_:b";
-    
     /** Allocation from a single scope; just the label matters. */
     static public NodeToLabel createScopeByDocument()
     { return new NodeToLabel(new SingleScopePolicy(), new AllocatorIncLabel()) ; }
@@ -171,7 +169,7 @@ public class NodeToLabel extends MapWithScope<Node, String, Node>
         @Override
         protected String labelForBlank(Node node)
         {
-            return ALLOCATOR_INC_LABEL_PREFIX+Integer.toString(X++) ;
+            return "_:b"+Integer.toString(X++) ;
         }
     }
     
